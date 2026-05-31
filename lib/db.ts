@@ -46,10 +46,10 @@ export type Scores = Record<string, UserScore>;
 function rowToScore(row: Record<string, unknown>): UserScore {
   return {
     name: row.name as string,
-    yo_sent: row.yo_sent as number,
-    yo_received: row.yo_received as number,
-    emoji_sent: row.emoji_sent as number,
-    emoji_received: row.emoji_received as number,
+    yo_sent: Number(row.yo_sent),
+    yo_received: Number(row.yo_received),
+    emoji_sent: Number(row.emoji_sent),
+    emoji_received: Number(row.emoji_received),
   };
 }
 
