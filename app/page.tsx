@@ -89,8 +89,6 @@ export default function Home() {
   }
 
   const scores = tab === 'month' ? monthly : global;
-
-  // Merge all known names so people with 0 this month still appear
   const allNames = Array.from(new Set([...Object.keys(global), ...Object.keys(monthly)]));
   const ranking = allNames
     .map(name => {
@@ -107,30 +105,27 @@ export default function Home() {
   // ── LANDING ──────────────────────────────────────────────────────────────
   if (!user) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center gap-10 p-6 relative overflow-hidden">
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-96 h-96 bg-white/[0.03] rounded-full blur-3xl" />
-        </div>
+      <div className="yo-bg min-h-screen flex flex-col items-center justify-center gap-10 p-6">
         <div
-          className="text-center cursor-pointer select-none relative z-10"
+          className="text-center cursor-pointer select-none"
           onClick={() => setLoginOpen(v => !v)}
         >
-          <p className="font-black leading-none tracking-tighter text-white" style={{ fontSize: 'clamp(7rem, 35vw, 16rem)' }}>
+          <p className="font-black leading-none tracking-tighter text-zinc-900" style={{ fontSize: 'clamp(7rem, 35vw, 16rem)' }}>
             Yo
           </p>
           <p className="leading-none mt-2" style={{ fontSize: 'clamp(3rem, 16vw, 7rem)' }}>
             ☝️🙄
           </p>
           {!loginOpen && (
-            <p className="mt-6 text-white/30 text-sm tracking-widest uppercase animate-slide">
+            <p className="mt-6 text-zinc-400 text-sm tracking-widest uppercase animate-slide">
               toca para entrar
             </p>
           )}
         </div>
         {loginOpen && (
-          <div className="flex flex-col items-center gap-3 w-full max-w-xs relative z-10 animate-slide">
+          <div className="flex flex-col items-center gap-3 w-full max-w-xs animate-slide">
             <input
-              className="w-full rounded-2xl px-5 py-4 text-lg bg-white/8 text-white placeholder-white/30 border border-white/15 outline-none focus:border-white/40 text-center tracking-wide"
+              className="w-full rounded-2xl px-5 py-4 text-lg bg-white text-zinc-900 placeholder-zinc-400 border border-zinc-200 outline-none focus:border-zinc-400 text-center tracking-wide shadow-sm"
               placeholder="¿cómo te llamas?"
               value={nameInput}
               onChange={e => setNameInput(e.target.value)}
@@ -139,7 +134,7 @@ export default function Home() {
             />
             <button
               onClick={handleLogin}
-              className="w-full rounded-2xl py-4 text-lg font-bold bg-white text-black hover:bg-zinc-100 active:scale-95 transition-all"
+              className="w-full rounded-2xl py-4 text-lg font-bold bg-zinc-900 text-white hover:bg-zinc-700 active:scale-95 transition-all shadow-sm"
             >
               Entrar
             </button>
@@ -153,11 +148,11 @@ export default function Home() {
 
   // ── MAIN ─────────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-zinc-950 text-white flex flex-col">
+    <div className="yo-bg min-h-screen text-zinc-900 flex flex-col">
       {floats.map(f => (
         <span
           key={f.id}
-          className="fixed pointer-events-none font-black animate-float z-50 select-none"
+          className="fixed pointer-events-none font-black animate-float z-50 select-none text-zinc-800"
           style={{ left: f.x, top: f.y, transform: 'translateX(-50%)', fontSize: '2.5rem' }}
         >
           {f.text}
@@ -167,12 +162,12 @@ export default function Home() {
       {/* header */}
       <header className="flex items-center justify-between px-5 pt-5 pb-2">
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-full bg-white/15 flex items-center justify-center text-xs font-bold">
+          <div className="w-7 h-7 rounded-full bg-zinc-200 flex items-center justify-center text-xs font-bold text-zinc-600">
             {user[0].toUpperCase()}
           </div>
-          <span className="text-white/50 text-sm">{user}</span>
+          <span className="text-zinc-400 text-sm">{user}</span>
         </div>
-        <button onClick={handleLogout} className="text-white/25 text-xs hover:text-white/50 transition-colors">
+        <button onClick={handleLogout} className="text-zinc-300 text-xs hover:text-zinc-500 transition-colors">
           salir
         </button>
       </header>
@@ -183,7 +178,7 @@ export default function Home() {
           <div className="flex gap-2 overflow-x-auto pb-1">
             <button
               onClick={() => setTarget(null)}
-              className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all ${target === null ? 'bg-white text-black' : 'bg-white/8 text-white/50 hover:bg-white/12'}`}
+              className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all ${target === null ? 'bg-zinc-900 text-white' : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200'}`}
             >
               todos
             </button>
@@ -191,15 +186,15 @@ export default function Home() {
               <button
                 key={name}
                 onClick={() => setTarget(t => t === name ? null : name)}
-                className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all ${target === name ? 'bg-white text-black' : 'bg-white/8 text-white/50 hover:bg-white/12'}`}
+                className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all ${target === name ? 'bg-zinc-900 text-white' : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200'}`}
               >
                 {name}
               </button>
             ))}
           </div>
           {target && (
-            <p className="text-white/30 text-xs mt-2 pl-1 animate-slide">
-              enviando a <span className="text-white/60 font-medium">{target}</span>
+            <p className="text-zinc-400 text-xs mt-2 pl-1 animate-slide">
+              enviando a <span className="text-zinc-700 font-medium">{target}</span>
             </p>
           )}
         </div>
@@ -210,29 +205,29 @@ export default function Home() {
         <button
           onClick={e => pressBtn('yo', e.currentTarget)}
           disabled={pressing}
-          className={`relative w-full max-w-xs rounded-[2rem] bg-white text-black font-black shadow-[0_0_60px_rgba(255,255,255,0.15)] transition-transform active:scale-95 disabled:opacity-60 ${popBtn === 'yo' ? 'animate-pop' : ''}`}
+          className={`relative w-full max-w-xs rounded-[2rem] bg-zinc-900 text-white font-black shadow-lg transition-transform active:scale-95 disabled:opacity-60 ${popBtn === 'yo' ? 'animate-pop' : ''}`}
           style={{ fontSize: 'clamp(3.5rem, 20vw, 6rem)', padding: '0.35em 0.5em' }}
         >
           Yo
-          {popBtn === 'yo' && <span className="absolute inset-0 rounded-[2rem] border-2 border-white animate-ring pointer-events-none" />}
+          {popBtn === 'yo' && <span className="absolute inset-0 rounded-[2rem] border-2 border-zinc-900 animate-ring pointer-events-none" />}
         </button>
         <button
           onClick={e => pressBtn('emoji', e.currentTarget)}
           disabled={pressing}
-          className={`relative w-full max-w-xs rounded-[2rem] bg-white/8 border border-white/15 text-center shadow-lg transition-transform active:scale-95 disabled:opacity-60 ${popBtn === 'emoji' ? 'animate-pop' : ''}`}
+          className={`relative w-full max-w-xs rounded-[2rem] bg-white border border-zinc-200 text-center shadow-sm transition-transform active:scale-95 disabled:opacity-60 ${popBtn === 'emoji' ? 'animate-pop' : ''}`}
           style={{ fontSize: 'clamp(2.5rem, 14vw, 4.5rem)', padding: '0.35em 0.5em' }}
         >
           ☝️🙄
-          {popBtn === 'emoji' && <span className="absolute inset-0 rounded-[2rem] border-2 border-white/40 animate-ring pointer-events-none" />}
+          {popBtn === 'emoji' && <span className="absolute inset-0 rounded-[2rem] border-2 border-zinc-400 animate-ring pointer-events-none" />}
         </button>
         {me && (
           <div className="flex gap-4 mt-1">
-            <span className="text-white/25 text-xs">
-              enviados <span className="text-white/50">{me.yo_sent + me.emoji_sent}</span>
+            <span className="text-zinc-400 text-xs">
+              enviados <span className="text-zinc-600">{me.yo_sent + me.emoji_sent}</span>
             </span>
-            <span className="text-white/15">·</span>
-            <span className="text-white/25 text-xs">
-              recibidos <span className="text-white/70 font-semibold">{me.yo_received + me.emoji_received}</span>
+            <span className="text-zinc-300">·</span>
+            <span className="text-zinc-400 text-xs">
+              recibidos <span className="text-zinc-700 font-semibold">{me.yo_received + me.emoji_received}</span>
             </span>
           </div>
         )}
@@ -241,16 +236,16 @@ export default function Home() {
       {/* ranking */}
       <div className="px-5 pb-8">
         {/* tab switcher */}
-        <div className="flex bg-white/5 rounded-2xl p-1 mb-4">
+        <div className="flex bg-zinc-100 rounded-2xl p-1 mb-4">
           <button
             onClick={() => setTab('month')}
-            className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-all ${tab === 'month' ? 'bg-white text-black' : 'text-white/40 hover:text-white/60'}`}
+            className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-all ${tab === 'month' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-400 hover:text-zinc-600'}`}
           >
             {monthLabel}
           </button>
           <button
             onClick={() => setTab('global')}
-            className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-all ${tab === 'global' ? 'bg-white text-black' : 'text-white/40 hover:text-white/60'}`}
+            className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-all ${tab === 'global' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-400 hover:text-zinc-600'}`}
           >
             Global
           </button>
@@ -266,33 +261,35 @@ export default function Home() {
                 key={entry.name}
                 onClick={() => !isMe && setTarget(t => t === entry.name ? null : entry.name)}
                 className={`flex items-center justify-between rounded-2xl px-4 py-3.5 transition-all cursor-pointer select-none ${
-                  isMe ? 'bg-white/10 border border-white/20'
-                  : target === entry.name ? 'bg-white/12 border border-white/30'
-                  : 'bg-white/[0.04] hover:bg-white/8 border border-transparent'
+                  isMe ? 'bg-white border border-zinc-200 shadow-sm'
+                  : target === entry.name ? 'bg-zinc-900 text-white border border-transparent'
+                  : 'bg-white/60 hover:bg-white border border-zinc-100'
                 }`}
               >
                 <div className="flex items-center gap-3">
                   <span className="text-lg w-6 text-center">
-                    {i < 3 ? MEDALS[i] : <span className="text-white/20 text-sm">{i + 1}</span>}
+                    {i < 3 ? MEDALS[i] : <span className="text-zinc-300 text-sm">{i + 1}</span>}
                   </span>
                   <div>
-                    <p className={`font-semibold text-sm ${isMe ? 'text-white' : 'text-white/80'}`}>
+                    <p className={`font-semibold text-sm ${target === entry.name && !isMe ? 'text-white' : isMe ? 'text-zinc-900' : 'text-zinc-700'}`}>
                       {entry.name}
-                      {isMe && <span className="text-white/30 font-normal text-xs ml-1.5">tú</span>}
+                      {isMe && <span className="text-zinc-400 font-normal text-xs ml-1.5">tú</span>}
                     </p>
-                    <p className="text-white/30 text-xs mt-0.5">
+                    <p className={`text-xs mt-0.5 ${target === entry.name && !isMe ? 'text-zinc-400' : 'text-zinc-400'}`}>
                       {sent} tocados · {received} recibidos
                     </p>
                   </div>
                 </div>
-                <div className="flex flex-col items-end gap-0.5">
-                  <span className="text-white font-bold text-lg tabular-nums">{sent + received}</span>
+                <div className="flex flex-col items-end">
+                  <span className={`font-bold text-lg tabular-nums ${target === entry.name && !isMe ? 'text-white' : 'text-zinc-800'}`}>
+                    {sent + received}
+                  </span>
                 </div>
               </div>
             );
           })}
           {ranking.length === 0 && (
-            <p className="text-white/20 text-sm text-center py-4">nadie ha dicho nada todavía</p>
+            <p className="text-zinc-400 text-sm text-center py-4">nadie ha dicho nada todavía</p>
           )}
         </div>
       </div>
