@@ -20,6 +20,11 @@ export async function ensureTable() {
       emoji_received INTEGER NOT NULL DEFAULT 0
     )
   `;
+  // migrate tables created before the sent/received split
+  await sql`ALTER TABLE scores ADD COLUMN IF NOT EXISTS yo_sent        INTEGER NOT NULL DEFAULT 0`;
+  await sql`ALTER TABLE scores ADD COLUMN IF NOT EXISTS yo_received    INTEGER NOT NULL DEFAULT 0`;
+  await sql`ALTER TABLE scores ADD COLUMN IF NOT EXISTS emoji_sent     INTEGER NOT NULL DEFAULT 0`;
+  await sql`ALTER TABLE scores ADD COLUMN IF NOT EXISTS emoji_received INTEGER NOT NULL DEFAULT 0`;
   await sql`
     CREATE TABLE IF NOT EXISTS scores_monthly (
       name           TEXT NOT NULL,
