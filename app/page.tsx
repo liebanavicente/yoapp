@@ -7,11 +7,16 @@ const USER_KEY = 'yo_user';
 const MEDALS = ['🥇', '🥈', '🥉'];
 
 type FloatItem = { id: number; text: string; x: number; y: number };
+type Tab = 'month' | 'global';
+
+const MONTH_NAMES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
 export default function Home() {
   const [user, setUser] = useState<string | null>(null);
   const [nameInput, setNameInput] = useState('');
-  const [scores, setScores] = useState<Scores>({});
+  const [global, setGlobal] = useState<Scores>({});
+  const [monthly, setMonthly] = useState<Scores>({});
+  const [tab, setTab] = useState<Tab>('month');
   const [loginOpen, setLoginOpen] = useState(false);
   const [ready, setReady] = useState(false);
   const [pressing, setPressing] = useState(false);
@@ -23,7 +28,9 @@ export default function Home() {
   const fetchScores = useCallback(async () => {
     try {
       const res = await fetch('/api/scores');
-      setScores(await res.json());
+      const data: { global: Scores; monthly: Scores } = await res.json();
+      setGlobal(data.global ?? {});
+      setMonthly(data.monthly ?? {});
     } catch {}
   }, []);
 
@@ -73,17 +80,27 @@ export default function Home() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ from: user, type, to: target ?? undefined }),
       });
-      setScores(await res.json());
+      const data: { global: Scores; monthly: Scores } = await res.json();
+      setGlobal(data.global ?? {});
+      setMonthly(data.monthly ?? {});
     } finally {
       setPressing(false);
     }
   }
 
-  const ranking = Object.values(scores).sort(
-    (a, b) => (b.yo_received + b.emoji_received) - (a.yo_received + a.emoji_received),
-  );
+  const scores = tab === 'month' ? monthly : global;
 
-  const others = ranking.filter(s => s.name !== user);
+  // Merge all known names so people with 0 this month still appear
+  const allNames = Array.from(new Set([...Object.keys(global), ...Object.keys(monthly)]));
+  const ranking = allNames
+    .map(name => {
+      const s = scores[name] ?? { name, yo_sent: 0, yo_received: 0, emoji_sent: 0, emoji_received: 0 };
+      return { ...s, total: s.yo_sent + s.emoji_sent + s.yo_received + s.emoji_received };
+    })
+    .sort((a, b) => b.total - a.total);
+
+  const others = allNames.filter(n => n !== user);
+  const monthLabel = MONTH_NAMES[new Date().getMonth()];
 
   if (!ready) return null;
 
@@ -91,19 +108,14 @@ export default function Home() {
   if (!user) {
     return (
       <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center gap-10 p-6 relative overflow-hidden">
-        {/* decorative blobs */}
         <div className="absolute inset-0 pointer-events-none">
           <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-96 h-96 bg-white/[0.03] rounded-full blur-3xl" />
         </div>
-
         <div
           className="text-center cursor-pointer select-none relative z-10"
           onClick={() => setLoginOpen(v => !v)}
         >
-          <p
-            className="font-black leading-none tracking-tighter text-white"
-            style={{ fontSize: 'clamp(7rem, 35vw, 16rem)' }}
-          >
+          <p className="font-black leading-none tracking-tighter text-white" style={{ fontSize: 'clamp(7rem, 35vw, 16rem)' }}>
             Yo
           </p>
           <p className="leading-none mt-2" style={{ fontSize: 'clamp(3rem, 16vw, 7rem)' }}>
@@ -115,7 +127,6 @@ export default function Home() {
             </p>
           )}
         </div>
-
         {loginOpen && (
           <div className="flex flex-col items-center gap-3 w-full max-w-xs relative z-10 animate-slide">
             <input
@@ -143,23 +154,17 @@ export default function Home() {
   // ── MAIN ─────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-zinc-950 text-white flex flex-col">
-      {/* floating emoji animations */}
       {floats.map(f => (
         <span
           key={f.id}
           className="fixed pointer-events-none font-black animate-float z-50 select-none"
-          style={{
-            left: f.x,
-            top: f.y,
-            transform: 'translateX(-50%)',
-            fontSize: '2.5rem',
-          }}
+          style={{ left: f.x, top: f.y, transform: 'translateX(-50%)', fontSize: '2.5rem' }}
         >
           {f.text}
         </span>
       ))}
 
-      {/* ── header ── */}
+      {/* header */}
       <header className="flex items-center justify-between px-5 pt-5 pb-2">
         <div className="flex items-center gap-2">
           <div className="w-7 h-7 rounded-full bg-white/15 flex items-center justify-center text-xs font-bold">
@@ -172,31 +177,23 @@ export default function Home() {
         </button>
       </header>
 
-      {/* ── target selector ── */}
+      {/* target chips */}
       {others.length > 0 && (
         <div className="px-5 pt-3">
-          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+          <div className="flex gap-2 overflow-x-auto pb-1">
             <button
               onClick={() => setTarget(null)}
-              className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                target === null
-                  ? 'bg-white text-black'
-                  : 'bg-white/8 text-white/50 hover:bg-white/12'
-              }`}
+              className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all ${target === null ? 'bg-white text-black' : 'bg-white/8 text-white/50 hover:bg-white/12'}`}
             >
               todos
             </button>
-            {others.map(s => (
+            {others.map(name => (
               <button
-                key={s.name}
-                onClick={() => setTarget(t => t === s.name ? null : s.name)}
-                className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                  target === s.name
-                    ? 'bg-white text-black'
-                    : 'bg-white/8 text-white/50 hover:bg-white/12'
-                }`}
+                key={name}
+                onClick={() => setTarget(t => t === name ? null : name)}
+                className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all ${target === name ? 'bg-white text-black' : 'bg-white/8 text-white/50 hover:bg-white/12'}`}
               >
-                {s.name}
+                {name}
               </button>
             ))}
           </div>
@@ -208,22 +205,17 @@ export default function Home() {
         </div>
       )}
 
-      {/* ── buttons ── */}
+      {/* buttons */}
       <div className="flex flex-col items-center gap-5 flex-1 justify-center py-8 px-6">
         <button
-          ref={el => { if (el && popBtn === 'yo') el.classList.add('animate-pop'); }}
           onClick={e => pressBtn('yo', e.currentTarget)}
           disabled={pressing}
           className={`relative w-full max-w-xs rounded-[2rem] bg-white text-black font-black shadow-[0_0_60px_rgba(255,255,255,0.15)] transition-transform active:scale-95 disabled:opacity-60 ${popBtn === 'yo' ? 'animate-pop' : ''}`}
           style={{ fontSize: 'clamp(3.5rem, 20vw, 6rem)', padding: '0.35em 0.5em' }}
         >
           Yo
-          {/* ring on press */}
-          {popBtn === 'yo' && (
-            <span className="absolute inset-0 rounded-[2rem] border-2 border-white animate-ring pointer-events-none" />
-          )}
+          {popBtn === 'yo' && <span className="absolute inset-0 rounded-[2rem] border-2 border-white animate-ring pointer-events-none" />}
         </button>
-
         <button
           onClick={e => pressBtn('emoji', e.currentTarget)}
           disabled={pressing}
@@ -231,12 +223,8 @@ export default function Home() {
           style={{ fontSize: 'clamp(2.5rem, 14vw, 4.5rem)', padding: '0.35em 0.5em' }}
         >
           ☝️🙄
-          {popBtn === 'emoji' && (
-            <span className="absolute inset-0 rounded-[2rem] border-2 border-white/40 animate-ring pointer-events-none" />
-          )}
+          {popBtn === 'emoji' && <span className="absolute inset-0 rounded-[2rem] border-2 border-white/40 animate-ring pointer-events-none" />}
         </button>
-
-        {/* my mini stats */}
         {me && (
           <div className="flex gap-4 mt-1">
             <span className="text-white/25 text-xs">
@@ -250,24 +238,37 @@ export default function Home() {
         )}
       </div>
 
-      {/* ── ranking ── */}
+      {/* ranking */}
       <div className="px-5 pb-8">
-        <p className="text-white/20 text-xs uppercase tracking-[0.2em] mb-3 pl-1">Ranking</p>
+        {/* tab switcher */}
+        <div className="flex bg-white/5 rounded-2xl p-1 mb-4">
+          <button
+            onClick={() => setTab('month')}
+            className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-all ${tab === 'month' ? 'bg-white text-black' : 'text-white/40 hover:text-white/60'}`}
+          >
+            {monthLabel}
+          </button>
+          <button
+            onClick={() => setTab('global')}
+            className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-all ${tab === 'global' ? 'bg-white text-black' : 'text-white/40 hover:text-white/60'}`}
+          >
+            Global
+          </button>
+        </div>
+
         <div className="flex flex-col gap-2">
           {ranking.map((entry, i) => {
             const isMe = entry.name === user;
-            const received = entry.yo_received + entry.emoji_received;
             const sent = entry.yo_sent + entry.emoji_sent;
+            const received = entry.yo_received + entry.emoji_received;
             return (
               <div
                 key={entry.name}
                 onClick={() => !isMe && setTarget(t => t === entry.name ? null : entry.name)}
                 className={`flex items-center justify-between rounded-2xl px-4 py-3.5 transition-all cursor-pointer select-none ${
-                  isMe
-                    ? 'bg-white/10 border border-white/20'
-                    : target === entry.name
-                    ? 'bg-white/12 border border-white/30'
-                    : 'bg-white/[0.04] hover:bg-white/8 border border-transparent'
+                  isMe ? 'bg-white/10 border border-white/20'
+                  : target === entry.name ? 'bg-white/12 border border-white/30'
+                  : 'bg-white/[0.04] hover:bg-white/8 border border-transparent'
                 }`}
               >
                 <div className="flex items-center gap-3">
@@ -280,13 +281,12 @@ export default function Home() {
                       {isMe && <span className="text-white/30 font-normal text-xs ml-1.5">tú</span>}
                     </p>
                     <p className="text-white/30 text-xs mt-0.5">
-                      {entry.yo_received} yo · {entry.emoji_received} ☝️🙄 recibidos
+                      {sent} tocados · {received} recibidos
                     </p>
                   </div>
                 </div>
                 <div className="flex flex-col items-end gap-0.5">
-                  <span className="text-white font-bold text-lg tabular-nums">{received}</span>
-                  <span className="text-white/25 text-xs tabular-nums">{sent} env.</span>
+                  <span className="text-white font-bold text-lg tabular-nums">{sent + received}</span>
                 </div>
               </div>
             );
