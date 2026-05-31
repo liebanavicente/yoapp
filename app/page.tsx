@@ -25,12 +25,28 @@ export default function Home() {
   const [popBtn, setPopBtn] = useState<'yo' | 'emoji' | null>(null);
   const floatId = useRef(0);
 
+  function sanitize(raw: unknown): Scores {
+    if (!raw || typeof raw !== 'object') return {};
+    const out: Scores = {};
+    for (const [name, v] of Object.entries(raw as Record<string, unknown>)) {
+      const s = v as Record<string, unknown>;
+      out[name] = {
+        name,
+        yo_sent:        Number(s?.yo_sent)        || 0,
+        yo_received:    Number(s?.yo_received)    || 0,
+        emoji_sent:     Number(s?.emoji_sent)     || 0,
+        emoji_received: Number(s?.emoji_received) || 0,
+      };
+    }
+    return out;
+  }
+
   const fetchScores = useCallback(async () => {
     try {
       const res = await fetch('/api/scores');
-      const data: { global: Scores; monthly: Scores } = await res.json();
-      setGlobal(data.global ?? {});
-      setMonthly(data.monthly ?? {});
+      const data = await res.json();
+      setGlobal(sanitize(data.global));
+      setMonthly(sanitize(data.monthly));
     } catch {}
   }, []);
 
@@ -80,9 +96,9 @@ export default function Home() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ from: user, type, to: target ?? undefined }),
       });
-      const data: { global: Scores; monthly: Scores } = await res.json();
-      setGlobal(data.global ?? {});
-      setMonthly(data.monthly ?? {});
+      const data = await res.json();
+      setGlobal(sanitize(data.global));
+      setMonthly(sanitize(data.monthly));
     } finally {
       setPressing(false);
     }
