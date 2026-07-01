@@ -12,6 +12,15 @@ export function currentMonth(): string {
 export async function ensureTable() {
   const sql = getSql();
   await sql`
+    CREATE TABLE IF NOT EXISTS users (
+      id            SERIAL PRIMARY KEY,
+      email         TEXT UNIQUE NOT NULL,
+      name          TEXT NOT NULL,
+      password_hash TEXT NOT NULL,
+      created_at    TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
+  await sql`
     CREATE TABLE IF NOT EXISTS scores (
       name           TEXT PRIMARY KEY,
       yo_sent        INTEGER NOT NULL DEFAULT 0,
@@ -20,7 +29,6 @@ export async function ensureTable() {
       emoji_received INTEGER NOT NULL DEFAULT 0
     )
   `;
-  // migrate tables created before the sent/received split
   await sql`ALTER TABLE scores ADD COLUMN IF NOT EXISTS yo_sent        INTEGER NOT NULL DEFAULT 0`;
   await sql`ALTER TABLE scores ADD COLUMN IF NOT EXISTS yo_received    INTEGER NOT NULL DEFAULT 0`;
   await sql`ALTER TABLE scores ADD COLUMN IF NOT EXISTS emoji_sent     INTEGER NOT NULL DEFAULT 0`;
@@ -36,6 +44,15 @@ export async function ensureTable() {
       PRIMARY KEY (name, month)
     )
   `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS audio_messages (
+      id         SERIAL PRIMARY KEY,
+      from_name  TEXT NOT NULL,
+      to_name    TEXT,
+      blob_url   TEXT NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `;
 }
 
 export type UserScore = {
@@ -48,12 +65,20 @@ export type UserScore = {
 
 export type Scores = Record<string, UserScore>;
 
+export type AudioMessage = {
+  id: number;
+  from_name: string;
+  to_name: string | null;
+  blob_url: string;
+  created_at: string;
+};
+
 function rowToScore(row: Record<string, unknown>): UserScore {
   return {
     name: row.name as string,
-    yo_sent: Number(row.yo_sent),
-    yo_received: Number(row.yo_received),
-    emoji_sent: Number(row.emoji_sent),
+    yo_sent:        Number(row.yo_sent),
+    yo_received:    Number(row.yo_received),
+    emoji_sent:     Number(row.emoji_sent),
     emoji_received: Number(row.emoji_received),
   };
 }
@@ -70,6 +95,22 @@ export async function getScores(): Promise<{ global: Scores; monthly: Scores }> 
   const monthly: Scores = {};
   for (const row of monthlyRows) monthly[row.name as string] = rowToScore(row);
   return { global, monthly };
+}
+
+export async function getAudioMessages(): Promise<AudioMessage[]> {
+  const sql = getSql();
+  const rows = await sql`
+    SELECT * FROM audio_messages ORDER BY created_at DESC LIMIT 30
+  `;
+  return rows as unknown as AudioMessage[];
+}
+
+export async function insertAudioMessage(from_name: string, to_name: string | null, blob_url: string) {
+  const sql = getSql();
+  await sql`
+    INSERT INTO audio_messages (from_name, to_name, blob_url)
+    VALUES (${from_name}, ${to_name}, ${blob_url})
+  `;
 }
 
 async function upsertGlobal(name: string) {
@@ -119,4 +160,20 @@ export async function press(from: string, type: 'yo' | 'emoji', to?: string): Pr
       ]);
     }
   }
+}
+
+export async function createUser(email: string, name: string, password_hash: string) {
+  const sql = getSql();
+  const rows = await sql`
+    INSERT INTO users (email, name, password_hash)
+    VALUES (${email}, ${name}, ${password_hash})
+    RETURNING id, email, name
+  `;
+  return rows[0] as { id: number; email: string; name: string };
+}
+
+export async function getUserByEmail(email: string) {
+  const sql = getSql();
+  const rows = await sql`SELECT * FROM users WHERE email = ${email}`;
+  return rows[0] as { id: number; email: string; name: string; password_hash: string } | undefined;
 }
