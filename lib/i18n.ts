@@ -48,6 +48,8 @@ export const t = {
     wrong_credentials: 'Incorrect email or password',
     invalid_link: 'Invalid or expired link',
     delete: 'Delete',
+    search_placeholder: 'Search…',
+    no_results: 'No results',
   },
   es: {
     tap_to_enter: 'toca para entrar',
@@ -90,6 +92,8 @@ export const t = {
     wrong_credentials: 'Email o contraseña incorrectos',
     invalid_link: 'Enlace inválido o caducado',
     delete: 'Borrar',
+    search_placeholder: 'Buscar…',
+    no_results: 'Sin resultados',
   },
   sw: {
     tap_to_enter: 'gusa kuingia',
@@ -132,6 +136,8 @@ export const t = {
     wrong_credentials: 'Barua pepe au nywila si sahihi',
     invalid_link: 'Kiungo batili au kimekwisha muda',
     delete: 'Futa',
+    search_placeholder: 'Tafuta…',
+    no_results: 'Hakuna matokeo',
   },
 } satisfies Record<Lang, Record<string, unknown>>;
 

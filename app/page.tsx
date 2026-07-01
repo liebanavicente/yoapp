@@ -66,6 +66,9 @@ export default function Home() {
 
   // ui
   const [target, setTarget] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchRef = useRef<HTMLInputElement | null>(null);
   const [pressing, setPressing] = useState(false);
   const [popBtn, setPopBtn] = useState<'yo' | 'emoji' | null>(null);
   const [floats, setFloats] = useState<FloatItem[]>([]);
@@ -318,24 +321,72 @@ export default function Home() {
         </div>
       </header>
 
-      {/* target chips */}
+      {/* target selector */}
       {others.length > 0 && (
         <div className="px-5 pt-3">
-          <div className="flex gap-2 overflow-x-auto pb-1">
-            <button onClick={() => setTarget(null)}
-              className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all ${target === null ? 'bg-zinc-900 text-white' : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200'}`}>
-              {tr.all}
+          <div className="flex items-center gap-2">
+            {/* search toggle */}
+            <button
+              onClick={() => {
+                setSearchOpen(o => {
+                  if (o) { setSearch(''); }
+                  else { setTimeout(() => searchRef.current?.focus(), 50); }
+                  return !o;
+                });
+              }}
+              className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center transition-all ${searchOpen ? 'bg-zinc-900 text-white' : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200'}`}
+            >
+              🔍
             </button>
-            {others.map(n => (
-              <button key={n} onClick={() => setTarget(t => t === n ? null : n)}
-                className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all ${target === n ? 'bg-zinc-900 text-white' : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200'}`}>
-                {n}
-              </button>
-            ))}
+
+            {searchOpen ? (
+              <input
+                ref={searchRef}
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder={tr.search_placeholder}
+                className="flex-1 rounded-full px-4 py-2 text-sm bg-zinc-100 text-zinc-800 placeholder-zinc-400 outline-none border border-zinc-200 focus:border-zinc-400 animate-slide"
+              />
+            ) : (
+              <div className="flex gap-2 overflow-x-auto pb-0.5 flex-1">
+                <button onClick={() => setTarget(null)}
+                  className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all ${target === null ? 'bg-zinc-900 text-white' : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200'}`}>
+                  {tr.all}
+                </button>
+                {others.map(n => (
+                  <button key={n} onClick={() => setTarget(t => t === n ? null : n)}
+                    className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all ${target === n ? 'bg-zinc-900 text-white' : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200'}`}>
+                    {n}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
+
+          {/* search results */}
+          {searchOpen && (
+            <div className="mt-2 flex flex-col gap-1 max-h-48 overflow-y-auto animate-slide">
+              {others
+                .filter(n => n.toLowerCase().includes(search.toLowerCase()))
+                .map(n => (
+                  <button key={n}
+                    onClick={() => { setTarget(n); setSearch(''); setSearchOpen(false); }}
+                    className={`w-full text-left px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                      target === n ? 'bg-zinc-900 text-white' : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200'
+                    }`}>
+                    {n}
+                  </button>
+                ))}
+              {others.filter(n => n.toLowerCase().includes(search.toLowerCase())).length === 0 && (
+                <p className="text-zinc-400 text-sm px-4 py-2">{tr.no_results}</p>
+              )}
+            </div>
+          )}
+
           {target && (
             <p className="text-zinc-400 text-xs mt-2 pl-1 animate-slide">
               {tr.sending_to} <span className="text-zinc-700 font-medium">{target}</span>
+              <button onClick={() => setTarget(null)} className="ml-2 text-zinc-300 hover:text-zinc-500">✕</button>
             </p>
           )}
         </div>
