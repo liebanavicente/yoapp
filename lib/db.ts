@@ -45,6 +45,13 @@ export async function ensureTable() {
     )
   `;
   await sql`
+    CREATE TABLE IF NOT EXISTS password_reset_tokens (
+      token      TEXT PRIMARY KEY,
+      email      TEXT NOT NULL,
+      expires_at TIMESTAMPTZ NOT NULL
+    )
+  `;
+  await sql`
     CREATE TABLE IF NOT EXISTS audio_messages (
       id         SERIAL PRIMARY KEY,
       from_name  TEXT NOT NULL,
@@ -176,4 +183,30 @@ export async function getUserByEmail(email: string) {
   const sql = getSql();
   const rows = await sql`SELECT * FROM users WHERE email = ${email}`;
   return rows[0] as { id: number; email: string; name: string; password_hash: string } | undefined;
+}
+
+export async function createResetToken(email: string, token: string) {
+  const sql = getSql();
+  const expires = new Date(Date.now() + 1000 * 60 * 30); // 30 min
+  await sql`DELETE FROM password_reset_tokens WHERE email = ${email}`;
+  await sql`
+    INSERT INTO password_reset_tokens (token, email, expires_at)
+    VALUES (${token}, ${email}, ${expires.toISOString()})
+  `;
+}
+
+export async function consumeResetToken(token: string) {
+  const sql = getSql();
+  const rows = await sql`
+    SELECT * FROM password_reset_tokens
+    WHERE token = ${token} AND expires_at > NOW()
+  `;
+  if (!rows[0]) return null;
+  await sql`DELETE FROM password_reset_tokens WHERE token = ${token}`;
+  return rows[0] as { email: string };
+}
+
+export async function updatePassword(email: string, password_hash: string) {
+  const sql = getSql();
+  await sql`UPDATE users SET password_hash = ${password_hash} WHERE email = ${email}`;
 }

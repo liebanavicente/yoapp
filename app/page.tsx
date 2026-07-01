@@ -281,6 +281,11 @@ export default function Home() {
             >
               {authLoading ? '...' : authMode === 'login' ? 'Entrar' : 'Crear cuenta'}
             </button>
+            {authMode === 'login' && (
+              <a href="/forgot" className="text-center text-xs text-zinc-400 hover:text-zinc-600 transition-colors">
+                ¿Olvidaste tu contraseña?
+              </a>
+            )}
           </div>
         </div>
       </div>
