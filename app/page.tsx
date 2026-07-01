@@ -59,6 +59,9 @@ export default function Home() {
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
 
+  // delete confirm: 0 = idle, 1 = first confirm, 2 = second confirm
+  const [deleteConfirm, setDeleteConfirm] = useState<Record<number, 0 | 1 | 2>>({});
+
   // scores
   const [global, setGlobal] = useState<Scores>({});
   const [monthly, setMonthly] = useState<Scores>({});
@@ -493,11 +496,33 @@ export default function Home() {
                   </p>
                   <div className="flex items-center gap-2">
                     <span className="text-zinc-300 text-xs">{timeAgo(a.created_at)}</span>
-                    {a.from_name === user.name && (
-                      <button onClick={() => deleteAudio(a.id)}
-                        className="text-zinc-300 hover:text-red-400 transition-colors text-xs"
-                        title={tr.delete}>✕</button>
-                    )}
+                    {a.from_name === user.name && (() => {
+                      const step = deleteConfirm[a.id] ?? 0;
+                      if (step === 0) return (
+                        <button
+                          onClick={() => setDeleteConfirm(d => ({ ...d, [a.id]: 1 }))}
+                          className="text-zinc-300 hover:text-red-400 transition-colors text-xs"
+                          title={tr.delete}>✕</button>
+                      );
+                      if (step === 1) return (
+                        <div className="flex items-center gap-1 animate-slide">
+                          <span className="text-zinc-500 text-xs">sure?</span>
+                          <button onClick={() => setDeleteConfirm(d => ({ ...d, [a.id]: 2 }))}
+                            className="text-red-400 text-xs font-semibold hover:text-red-600">yes</button>
+                          <button onClick={() => setDeleteConfirm(d => ({ ...d, [a.id]: 0 }))}
+                            className="text-zinc-300 text-xs hover:text-zinc-500">no</button>
+                        </div>
+                      );
+                      return (
+                        <div className="flex items-center gap-1 animate-slide">
+                          <span className="text-zinc-500 text-xs">REALLY sure?</span>
+                          <button onClick={() => { deleteAudio(a.id); setDeleteConfirm(d => ({ ...d, [a.id]: 0 })); }}
+                            className="text-red-500 text-xs font-bold hover:text-red-700">yes!!</button>
+                          <button onClick={() => setDeleteConfirm(d => ({ ...d, [a.id]: 0 }))}
+                            className="text-zinc-300 text-xs hover:text-zinc-500">no</button>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
                 <audio controls className="w-full" style={{ height: '36px' }}>
