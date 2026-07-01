@@ -57,9 +57,11 @@ export async function ensureTable() {
       from_name  TEXT NOT NULL,
       to_name    TEXT,
       blob_url   TEXT NOT NULL,
+      mime_type  TEXT NOT NULL DEFAULT 'audio/webm',
       created_at TIMESTAMPTZ DEFAULT NOW()
     )
   `;
+  await sql`ALTER TABLE audio_messages ADD COLUMN IF NOT EXISTS mime_type TEXT NOT NULL DEFAULT 'audio/webm'`;
 }
 
 export type UserScore = {
@@ -77,6 +79,7 @@ export type AudioMessage = {
   from_name: string;
   to_name: string | null;
   blob_url: string;
+  mime_type: string;
   created_at: string;
 };
 
@@ -112,12 +115,21 @@ export async function getAudioMessages(): Promise<AudioMessage[]> {
   return rows as unknown as AudioMessage[];
 }
 
-export async function insertAudioMessage(from_name: string, to_name: string | null, blob_url: string) {
+export async function insertAudioMessage(from_name: string, to_name: string | null, blob_url: string, mime_type: string) {
   const sql = getSql();
   await sql`
-    INSERT INTO audio_messages (from_name, to_name, blob_url)
-    VALUES (${from_name}, ${to_name}, ${blob_url})
+    INSERT INTO audio_messages (from_name, to_name, blob_url, mime_type)
+    VALUES (${from_name}, ${to_name}, ${blob_url}, ${mime_type})
   `;
+}
+
+export async function deleteAudioMessage(id: number, from_name: string): Promise<string | null> {
+  const sql = getSql();
+  const rows = await sql`
+    DELETE FROM audio_messages WHERE id = ${id} AND from_name = ${from_name}
+    RETURNING blob_url
+  `;
+  return rows[0] ? (rows[0].blob_url as string) : null;
 }
 
 async function upsertGlobal(name: string) {

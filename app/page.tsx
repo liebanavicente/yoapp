@@ -156,6 +156,11 @@ export default function Home() {
   }
 
   // ── audio recording ─────────────────────────────────────────────────────
+  function getSupportedMime() {
+    const types = ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm', 'audio/ogg'];
+    return types.find(t => MediaRecorder.isTypeSupported(t)) ?? '';
+  }
+
   async function startRecording() {
     if (recording || uploading) return;
     let stream: MediaStream;
@@ -165,14 +170,15 @@ export default function Home() {
       alert('Necesito permiso para el micrófono');
       return;
     }
-    const mr = new MediaRecorder(stream);
+    const mimeType = getSupportedMime();
+    const mr = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
     mediaRecRef.current = mr;
     chunksRef.current = [];
     mr.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };
     mr.onstop = () => {
       stream.getTracks().forEach(t => t.stop());
-      const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
-      uploadAudio(blob);
+      const blob = new Blob(chunksRef.current, { type: mr.mimeType || mimeType });
+      uploadAudio(blob, mr.mimeType || mimeType);
     };
     mr.start(100);
     setRecording(true);
@@ -192,18 +198,29 @@ export default function Home() {
     setCountdown(5);
   }
 
-  async function uploadAudio(blob: Blob) {
+  async function uploadAudio(blob: Blob, mimeType: string) {
     if (!user) return;
     setUploading(true);
     try {
+      const ext = mimeType.includes('mp4') ? 'mp4' : mimeType.includes('ogg') ? 'ogg' : 'webm';
       const fd = new FormData();
-      fd.append('audio', blob, 'audio.webm');
+      fd.append('audio', blob, `audio.${ext}`);
+      fd.append('mimeType', mimeType);
       if (target) fd.append('to', target);
       const res = await fetch('/api/audio', { method: 'POST', body: fd });
       if (res.ok) setAudios(await res.json());
     } finally {
       setUploading(false);
     }
+  }
+
+  async function deleteAudio(id: number) {
+    const res = await fetch('/api/audio', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
+    });
+    if (res.ok) setAudios(await res.json());
   }
 
   // ── derived ──────────────────────────────────────────────────────────────
@@ -441,15 +458,28 @@ export default function Home() {
           <p className="text-zinc-400 text-xs uppercase tracking-widest mb-3">Audios</p>
           <div className="flex flex-col gap-2">
             {audios.map(a => (
-              <div key={a.id} className="bg-white border border-zinc-100 rounded-2xl px-4 py-3 flex items-center gap-3 shadow-sm">
-                <div className="flex-1 min-w-0">
+              <div key={a.id} className="bg-white border border-zinc-100 rounded-2xl px-4 py-3 shadow-sm">
+                <div className="flex items-center justify-between mb-1.5">
                   <p className="text-sm font-medium text-zinc-800">
                     {a.from_name}
                     {a.to_name && <span className="text-zinc-400 font-normal"> → {a.to_name}</span>}
                   </p>
-                  <audio src={a.blob_url} controls className="w-full mt-1.5" style={{ height: '32px' }} />
+                  <div className="flex items-center gap-2">
+                    <span className="text-zinc-300 text-xs">{timeAgo(a.created_at)}</span>
+                    {a.from_name === user.name && (
+                      <button
+                        onClick={() => deleteAudio(a.id)}
+                        className="text-zinc-300 hover:text-red-400 transition-colors text-xs"
+                        title="Borrar"
+                      >✕</button>
+                    )}
+                  </div>
                 </div>
-                <span className="text-zinc-300 text-xs flex-shrink-0">{timeAgo(a.created_at)}</span>
+                <audio controls className="w-full" style={{ height: '36px' }}>
+                  <source src={a.blob_url} type={a.mime_type} />
+                  <source src={a.blob_url} type="audio/mp4" />
+                  <source src={a.blob_url} type="audio/webm" />
+                </audio>
               </div>
             ))}
           </div>
