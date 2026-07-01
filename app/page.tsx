@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Scores, AudioMessage } from '@/lib/db';
+import { t, LANG_LABELS, LANG_KEY, DEFAULT_LANG, type Lang } from '@/lib/i18n';
 
 const MEDALS = ['🥇', '🥈', '🥉'];
-const MONTH_NAMES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
 type Tab = 'month' | 'global';
 type AuthMode = 'login' | 'register';
@@ -14,16 +14,42 @@ type SessionUser = { id: number; email: string; name: string };
 function timeAgo(iso: string) {
   const diff = Date.now() - new Date(iso).getTime();
   const m = Math.floor(diff / 60000);
-  if (m < 1) return 'ahora';
+  if (m < 1) return 'now';
   if (m < 60) return `${m}m`;
   const h = Math.floor(m / 60);
   if (h < 24) return `${h}h`;
   return `${Math.floor(h / 24)}d`;
 }
 
+function LangPicker({ lang, setLang }: { lang: Lang; setLang: (l: Lang) => void }) {
+  return (
+    <div className="flex gap-1">
+      {(Object.keys(LANG_LABELS) as Lang[]).map(l => (
+        <button
+          key={l}
+          onClick={() => setLang(l)}
+          className={`px-2 py-1 rounded-lg text-xs font-medium transition-all ${
+            lang === l ? 'bg-zinc-900 text-white' : 'text-zinc-400 hover:text-zinc-600'
+          }`}
+        >
+          {LANG_LABELS[l]}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export default function Home() {
   const [user, setUser] = useState<SessionUser | null>(null);
   const [ready, setReady] = useState(false);
+  const [lang, setLangState] = useState<Lang>(DEFAULT_LANG);
+
+  function setLang(l: Lang) {
+    setLangState(l);
+    localStorage.setItem(LANG_KEY, l);
+  }
+
+  const tr = t[lang];
 
   // auth form
   const [authMode, setAuthMode] = useState<AuthMode>('login');
@@ -56,6 +82,8 @@ export default function Home() {
 
   // ── boot ────────────────────────────────────────────────────────────────
   useEffect(() => {
+    const saved = localStorage.getItem(LANG_KEY) as Lang | null;
+    if (saved && saved in LANG_LABELS) setLangState(saved);
     fetch('/api/auth/me')
       .then(r => r.json())
       .then((u: SessionUser | null) => { setUser(u); setReady(true); });
@@ -78,10 +106,7 @@ export default function Home() {
   }
 
   const fetchAll = useCallback(async () => {
-    const [scoresRes, audioRes] = await Promise.all([
-      fetch('/api/scores'),
-      fetch('/api/audio'),
-    ]);
+    const [scoresRes, audioRes] = await Promise.all([fetch('/api/scores'), fetch('/api/audio')]);
     const scores = await scoresRes.json();
     setGlobal(sanitize(scores.global));
     setMonthly(sanitize(scores.monthly));
@@ -100,9 +125,7 @@ export default function Home() {
     setAuthError('');
     setAuthLoading(true);
     try {
-      const body = authMode === 'login'
-        ? { email, password }
-        : { email, name, password };
+      const body = authMode === 'login' ? { email, password } : { email, name, password };
       const res = await fetch(`/api/auth/${authMode}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -118,14 +141,10 @@ export default function Home() {
 
   async function handleLogout() {
     await fetch('/api/auth/logout', { method: 'POST' });
-    setUser(null);
-    setGlobal({});
-    setMonthly({});
-    setAudios([]);
-    setTarget(null);
+    setUser(null); setGlobal({}); setMonthly({}); setAudios([]); setTarget(null);
   }
 
-  // ── press buttons ───────────────────────────────────────────────────────
+  // ── press ────────────────────────────────────────────────────────────────
   function spawnFloat(text: string, el: HTMLElement | null) {
     const rect = el?.getBoundingClientRect();
     const x = rect ? rect.left + rect.width / 2 : window.innerWidth / 2;
@@ -137,8 +156,7 @@ export default function Home() {
 
   async function pressBtn(type: 'yo' | 'emoji', el: HTMLElement | null) {
     if (!user || pressing) return;
-    setPressing(true);
-    setPopBtn(type);
+    setPressing(true); setPopBtn(type);
     spawnFloat(type === 'yo' ? 'Yo' : '☝️🙄', el);
     setTimeout(() => setPopBtn(null), 350);
     try {
@@ -150,12 +168,10 @@ export default function Home() {
       const data = await res.json();
       setGlobal(sanitize(data.global));
       setMonthly(sanitize(data.monthly));
-    } finally {
-      setPressing(false);
-    }
+    } finally { setPressing(false); }
   }
 
-  // ── audio recording ─────────────────────────────────────────────────────
+  // ── audio ────────────────────────────────────────────────────────────────
   function getSupportedMime() {
     const types = ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm', 'audio/ogg'];
     return types.find(t => MediaRecorder.isTypeSupported(t)) ?? '';
@@ -164,38 +180,25 @@ export default function Home() {
   async function startRecording() {
     if (recording || uploading) return;
     let stream: MediaStream;
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    } catch {
-      alert('Necesito permiso para el micrófono');
-      return;
-    }
+    try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+    catch { alert('Microphone permission needed'); return; }
     const mimeType = getSupportedMime();
     const mr = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
-    mediaRecRef.current = mr;
-    chunksRef.current = [];
+    mediaRecRef.current = mr; chunksRef.current = [];
     mr.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data); };
     mr.onstop = () => {
       stream.getTracks().forEach(t => t.stop());
-      const blob = new Blob(chunksRef.current, { type: mr.mimeType || mimeType });
-      uploadAudio(blob, mr.mimeType || mimeType);
+      uploadAudio(new Blob(chunksRef.current, { type: mr.mimeType || mimeType }), mr.mimeType || mimeType);
     };
-    mr.start(100);
-    setRecording(true);
-    setCountdown(5);
+    mr.start(100); setRecording(true); setCountdown(5);
     let c = 5;
-    timerRef.current = setInterval(() => {
-      c--;
-      setCountdown(c);
-      if (c <= 0) stopRecording();
-    }, 1000);
+    timerRef.current = setInterval(() => { c--; setCountdown(c); if (c <= 0) stopRecording(); }, 1000);
   }
 
   function stopRecording() {
     if (timerRef.current) clearInterval(timerRef.current);
     if (mediaRecRef.current?.state === 'recording') mediaRecRef.current.stop();
-    setRecording(false);
-    setCountdown(5);
+    setRecording(false); setCountdown(5);
   }
 
   async function uploadAudio(blob: Blob, mimeType: string) {
@@ -209,9 +212,7 @@ export default function Home() {
       if (target) fd.append('to', target);
       const res = await fetch('/api/audio', { method: 'POST', body: fd });
       if (res.ok) setAudios(await res.json());
-    } finally {
-      setUploading(false);
-    }
+    } finally { setUploading(false); }
   }
 
   async function deleteAudio(id: number) {
@@ -234,7 +235,7 @@ export default function Home() {
     .sort((a, b) => b.total - a.total);
 
   const others = allNames.filter(n => n !== user?.name);
-  const monthLabel = MONTH_NAMES[new Date().getMonth()];
+  const monthLabel = tr.month_names[new Date().getMonth()];
   const me = user ? scores[user.name] : null;
 
   if (!ready) return null;
@@ -245,62 +246,44 @@ export default function Home() {
       <div className="yo-bg min-h-screen flex flex-col items-center justify-center p-6">
         <div className="w-full max-w-xs flex flex-col gap-6">
           <div className="text-center select-none mb-2">
-            <p className="font-black leading-none tracking-tighter text-zinc-900" style={{ fontSize: 'clamp(5rem, 25vw, 9rem)' }}>
-              Yo
-            </p>
+            <p className="font-black leading-none tracking-tighter text-zinc-900" style={{ fontSize: 'clamp(5rem, 25vw, 9rem)' }}>Yo</p>
             <p className="leading-none" style={{ fontSize: 'clamp(2.5rem, 12vw, 4rem)' }}>☝️🙄</p>
           </div>
 
-          {/* tab */}
+          <div className="flex justify-center">
+            <LangPicker lang={lang} setLang={setLang} />
+          </div>
+
           <div className="flex bg-zinc-100 rounded-2xl p-1">
             <button onClick={() => { setAuthMode('login'); setAuthError(''); }}
               className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-all ${authMode === 'login' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-400'}`}>
-              Entrar
+              {tr.login}
             </button>
             <button onClick={() => { setAuthMode('register'); setAuthError(''); }}
               className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-all ${authMode === 'register' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-400'}`}>
-              Registrarse
+              {tr.register}
             </button>
           </div>
 
           <div className="flex flex-col gap-3">
             {authMode === 'register' && (
-              <input
-                className="w-full rounded-2xl px-4 py-3.5 text-base bg-white text-zinc-900 placeholder-zinc-400 border border-zinc-200 outline-none focus:border-zinc-400 shadow-sm"
-                placeholder="tu nombre"
-                value={name}
-                onChange={e => setName(e.target.value)}
-                autoComplete="name"
-              />
+              <input className="w-full rounded-2xl px-4 py-3.5 text-base bg-white text-zinc-900 placeholder-zinc-400 border border-zinc-200 outline-none focus:border-zinc-400 shadow-sm"
+                placeholder={tr.your_name} value={name} onChange={e => setName(e.target.value)} autoComplete="name" />
             )}
-            <input
-              className="w-full rounded-2xl px-4 py-3.5 text-base bg-white text-zinc-900 placeholder-zinc-400 border border-zinc-200 outline-none focus:border-zinc-400 shadow-sm"
-              placeholder="email"
-              type="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              autoComplete="email"
-            />
-            <input
-              className="w-full rounded-2xl px-4 py-3.5 text-base bg-white text-zinc-900 placeholder-zinc-400 border border-zinc-200 outline-none focus:border-zinc-400 shadow-sm"
-              placeholder="contraseña"
-              type="password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
+            <input className="w-full rounded-2xl px-4 py-3.5 text-base bg-white text-zinc-900 placeholder-zinc-400 border border-zinc-200 outline-none focus:border-zinc-400 shadow-sm"
+              placeholder={tr.email} type="email" value={email} onChange={e => setEmail(e.target.value)} autoComplete="email" />
+            <input className="w-full rounded-2xl px-4 py-3.5 text-base bg-white text-zinc-900 placeholder-zinc-400 border border-zinc-200 outline-none focus:border-zinc-400 shadow-sm"
+              placeholder={tr.password} type="password" value={password} onChange={e => setPassword(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleAuth()}
-              autoComplete={authMode === 'login' ? 'current-password' : 'new-password'}
-            />
+              autoComplete={authMode === 'login' ? 'current-password' : 'new-password'} />
             {authError && <p className="text-red-500 text-sm text-center">{authError}</p>}
-            <button
-              onClick={handleAuth}
-              disabled={authLoading}
-              className="w-full rounded-2xl py-3.5 text-base font-bold bg-zinc-900 text-white hover:bg-zinc-700 active:scale-95 transition-all shadow-sm disabled:opacity-60"
-            >
-              {authLoading ? '...' : authMode === 'login' ? 'Entrar' : 'Crear cuenta'}
+            <button onClick={handleAuth} disabled={authLoading}
+              className="w-full rounded-2xl py-3.5 text-base font-bold bg-zinc-900 text-white hover:bg-zinc-700 active:scale-95 transition-all shadow-sm disabled:opacity-60">
+              {authLoading ? '…' : authMode === 'login' ? tr.login : tr.create_account}
             </button>
             {authMode === 'login' && (
               <a href="/forgot" className="text-center text-xs text-zinc-400 hover:text-zinc-600 transition-colors">
-                ¿Olvidaste tu contraseña?
+                {tr.forgot_password}
               </a>
             )}
           </div>
@@ -327,7 +310,12 @@ export default function Home() {
           </div>
           <span className="text-zinc-500 text-sm">{user.name}</span>
         </div>
-        <button onClick={handleLogout} className="text-zinc-300 text-xs hover:text-zinc-500 transition-colors">salir</button>
+        <div className="flex items-center gap-3">
+          <LangPicker lang={lang} setLang={setLang} />
+          <button onClick={handleLogout} className="text-zinc-300 text-xs hover:text-zinc-500 transition-colors">
+            {tr.logout}
+          </button>
+        </div>
       </header>
 
       {/* target chips */}
@@ -336,7 +324,7 @@ export default function Home() {
           <div className="flex gap-2 overflow-x-auto pb-1">
             <button onClick={() => setTarget(null)}
               className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all ${target === null ? 'bg-zinc-900 text-white' : 'bg-zinc-100 text-zinc-500 hover:bg-zinc-200'}`}>
-              todos
+              {tr.all}
             </button>
             {others.map(n => (
               <button key={n} onClick={() => setTarget(t => t === n ? null : n)}
@@ -347,7 +335,7 @@ export default function Home() {
           </div>
           {target && (
             <p className="text-zinc-400 text-xs mt-2 pl-1 animate-slide">
-              enviando a <span className="text-zinc-700 font-medium">{target}</span>
+              {tr.sending_to} <span className="text-zinc-700 font-medium">{target}</span>
             </p>
           )}
         </div>
@@ -369,36 +357,24 @@ export default function Home() {
           {popBtn === 'emoji' && <span className="absolute inset-0 rounded-[2rem] border-2 border-zinc-400 animate-ring pointer-events-none" />}
         </button>
 
-        {/* mic button */}
-        <button
-          onClick={recording ? stopRecording : startRecording}
-          disabled={uploading}
+        <button onClick={recording ? stopRecording : startRecording} disabled={uploading}
           className={`relative flex items-center gap-2 px-6 py-3 rounded-full font-semibold text-sm transition-all active:scale-95 shadow-sm ${
-            recording
-              ? 'bg-red-500 text-white'
-              : 'bg-white border border-zinc-200 text-zinc-600 hover:bg-zinc-50'
-          } disabled:opacity-50`}
-        >
+            recording ? 'bg-red-500 text-white' : 'bg-white border border-zinc-200 text-zinc-600 hover:bg-zinc-50'
+          } disabled:opacity-50`}>
           {uploading ? (
-            <span className="text-zinc-400">enviando…</span>
+            <span className="text-zinc-400">{tr.sending}</span>
           ) : recording ? (
-            <>
-              <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
-              <span>Grabando · {countdown}s</span>
-            </>
+            <><span className="w-2 h-2 rounded-full bg-white animate-pulse" /><span>{tr.recording} · {countdown}s</span></>
           ) : (
-            <>
-              <span>🎙️</span>
-              <span>Audio {target ? `para ${target}` : 'al grupo'}</span>
-            </>
+            <><span>🎙️</span><span>{target ? tr.audio_to(target) : tr.audio_group}</span></>
           )}
         </button>
 
         {me && (
           <div className="flex gap-4">
-            <span className="text-zinc-400 text-xs">enviados <span className="text-zinc-600">{me.yo_sent + me.emoji_sent}</span></span>
+            <span className="text-zinc-400 text-xs">{tr.sent} <span className="text-zinc-600">{me.yo_sent + me.emoji_sent}</span></span>
             <span className="text-zinc-300">·</span>
-            <span className="text-zinc-400 text-xs">recibidos <span className="text-zinc-700 font-semibold">{me.yo_received + me.emoji_received}</span></span>
+            <span className="text-zinc-400 text-xs">{tr.received} <span className="text-zinc-700 font-semibold">{me.yo_received + me.emoji_received}</span></span>
           </div>
         )}
       </div>
@@ -412,7 +388,7 @@ export default function Home() {
           </button>
           <button onClick={() => setTab('global')}
             className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-all ${tab === 'global' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-400'}`}>
-            Global
+            {tr.global}
           </button>
         </div>
         <div className="flex flex-col gap-2">
@@ -435,10 +411,10 @@ export default function Home() {
                   <div>
                     <p className={`font-semibold text-sm ${target === entry.name && !isMe ? 'text-white' : 'text-zinc-800'}`}>
                       {entry.name}
-                      {isMe && <span className="text-zinc-400 font-normal text-xs ml-1.5">tú</span>}
+                      {isMe && <span className="text-zinc-400 font-normal text-xs ml-1.5">{tr.you}</span>}
                     </p>
-                    <p className={`text-xs mt-0.5 ${target === entry.name && !isMe ? 'text-zinc-400' : 'text-zinc-400'}`}>
-                      {sent} tocados · {received} recibidos
+                    <p className="text-xs mt-0.5 text-zinc-400">
+                      {sent} {tr.tapped} · {received} {tr.received}
                     </p>
                   </div>
                 </div>
@@ -448,14 +424,14 @@ export default function Home() {
               </div>
             );
           })}
-          {ranking.length === 0 && <p className="text-zinc-400 text-sm text-center py-4">nadie ha dicho nada todavía</p>}
+          {ranking.length === 0 && <p className="text-zinc-400 text-sm text-center py-4">{tr.nobody}</p>}
         </div>
       </div>
 
       {/* audio feed */}
       {audios.length > 0 && (
         <div className="px-5 pb-8">
-          <p className="text-zinc-400 text-xs uppercase tracking-widest mb-3">Audios</p>
+          <p className="text-zinc-400 text-xs uppercase tracking-widest mb-3">{tr.audios}</p>
           <div className="flex flex-col gap-2">
             {audios.map(a => (
               <div key={a.id} className="bg-white border border-zinc-100 rounded-2xl px-4 py-3 shadow-sm">
@@ -467,11 +443,9 @@ export default function Home() {
                   <div className="flex items-center gap-2">
                     <span className="text-zinc-300 text-xs">{timeAgo(a.created_at)}</span>
                     {a.from_name === user.name && (
-                      <button
-                        onClick={() => deleteAudio(a.id)}
+                      <button onClick={() => deleteAudio(a.id)}
                         className="text-zinc-300 hover:text-red-400 transition-colors text-xs"
-                        title="Borrar"
-                      >✕</button>
+                        title={tr.delete}>✕</button>
                     )}
                   </div>
                 </div>
